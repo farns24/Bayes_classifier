@@ -10,6 +10,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import model.MNB_Classifier;
+import model.MNB_Evaluator;
 import model.MNB_Probability;
 import model.WordProbs;
 import model.FeaturedWord;
@@ -21,25 +22,40 @@ public class TestFeatureSelectionFinder {
 	}
 
 //	@Test
+//	public void testUndermining()
+//	{
+//		
+//		String undermining = "the";
+//		MNB_Classifier finder = new MNB_Classifier();
+//		finder.getInformationGain(undermining);
+//	}
+	
+	
+//	@Test
 //	public void test() {
 //	MNB_Classifier finder = new MNB_Classifier();
 //	List<FeaturedWord> result = finder.getFeatureSelection(10);
 //	System.out.println(result.toString());
 //	
-//	String label = finder.label(new File("C:\\Users\\wolfa\\workspace\\Bayes Model Classification\\20NG\\sci.crypt\\15000"));
+//	String label = finder.label(new File("/users/guest/f/farns24/workspace/Bayes_classifier/20NG/comp.graphics/37261"),6200);
 //	System.out.println(label);
 //	}
 	
+//	@Test
+//	public void testProbs()
+//	{
+//		MNB_Probability probs = new MNB_Probability();
+//		
+//		Map<String, Double> classProbabilities = probs.computerClassProbabilities();
+//		
+//		
+//		WordProbs wordProbabilities = probs.computeWordProbability();
+//	}
 	@Test
-	public void testProbs()
+	public void testEvaluator()
 	{
-		MNB_Probability probs = new MNB_Probability();
-		
-		Map<String, Double> classProbabilities = probs.computerClassProbabilities();
-		
-		
-		WordProbs wordProbabilities = probs.computeWordProbability();
+		MNB_Evaluator eval = new MNB_Evaluator();
+		eval.accuracyMeasure();
 	}
-
 		
 }

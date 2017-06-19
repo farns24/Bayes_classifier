@@ -23,7 +23,7 @@ public class FeaturedWord implements Comparable<FeaturedWord> {
 	}
 	@Override
 	public int compareTo(FeaturedWord o) {
-		return Double.compare(this.score, o.score);
+		return -1 * Double.compare(this.score, o.score);
 	}
 	@Override
 	public String toString() {

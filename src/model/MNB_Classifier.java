@@ -7,25 +7,29 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.Map.Entry;
 
 import provided.MyReader;
 
 import java.util.Set;
 
+import main.StopWords;
 import utils.Utils;
 
 public class MNB_Classifier implements IFeatureSelectProbabilityFinder {
-    Map<String,Map<String,Integer>> word2class2Count = new HashMap<String, Map<String,Integer>>();
+  
 	Map<String,Integer> classDocumentCounts = new HashMap<String,Integer>();
 	private int totalDocumentCount= 0;
-	
+	private Map<String,Map<String,Set<String>>> class2word2Document = new TreeMap<>();
 	Map<String,Set<String>> word2Documents = new HashMap<String,Set<String>>();
 	
 	
 	public MNB_Classifier() {
 		super();
-		
+		StopWords sw = new StopWords();
+
 		Map<String,File[]> trainingFiles = Utils.getTrainingFiles();
 		
 		for (Entry<String,File[]>entry: trainingFiles.entrySet())
@@ -37,8 +41,12 @@ public class MNB_Classifier implements IFeatureSelectProbabilityFinder {
 			{
 				for (String word: MyReader.readEmail(file.toPath()))
 				{
+					if (sw.contains(word))
+					{
+						continue;
+					}
 					Set<String> fileNames = null;
-					if (word2Documents.containsKey(word)==false)
+					if (word2Documents.containsKey(word)==false)//Existance of word
 					{
 						fileNames = new HashSet<String>();
 					}
@@ -50,29 +58,34 @@ public class MNB_Classifier implements IFeatureSelectProbabilityFinder {
 					
 					word2Documents.put(word, fileNames);
 					
-					Map<String,Integer> class2count = null;
-					if (word2class2Count.containsKey(word)==false)
+					
+					
+					
+					
+					
+					
+					Map<String, Set<String>> classword2Document = null;
+					if (class2word2Document.containsKey(entry.getKey()))
 					{
-						class2count = new HashMap<String, Integer>();
+						classword2Document = class2word2Document.get(entry.getKey());
 					}
 					else
 					{
-						class2count = word2class2Count.get(word);
+						classword2Document = new TreeMap<>();
 					}
 					
-					
-					if (class2count.containsKey(entry.getKey())==false)
+					Set<String> classDocSet = null;
+					if (classword2Document.containsKey(word))
 					{
-						class2count.put(entry.getKey(), 1);
+						classDocSet = classword2Document.get(word);
 					}
 					else
 					{
-						class2count.put(entry.getKey(), class2count.get(entry.getKey())+1);
+						classDocSet = new TreeSet<>();
 					}
-					
-					
-					
-					word2class2Count.put(word, class2count);
+					classDocSet.add(file.getName());
+					classword2Document.put(word, classDocSet);
+					class2word2Document.put(entry.getKey(),classword2Document );
 					
 				}
 			}
@@ -92,14 +105,14 @@ public class MNB_Classifier implements IFeatureSelectProbabilityFinder {
 		for (String className:classDocumentCounts.keySet())
 		{
 			double pc = getClassProbability(className);
-			sumPc += (pc * Math.log(pc)/Math.log(2));
+			sumPc += pc!=0? (pc * Math.log(pc)/Math.log(2)):0.0;
 			
 			double pcw = getClassProbGivenWord(word, className);
-			sumPcw += (pcw * Math.log(pcw)/Math.log(2));
+			sumPcw += pcw!=0.0?(pcw * Math.log(pcw)/Math.log(2)):0.0;
 			
 			
 			double pcSansw = getClassProbGivenNotWord(word, className);
-			sumPcSansw += (pcSansw * Math.log(pcSansw)/Math.log(2));
+			sumPcSansw += pcSansw!=0.0 ? (pcSansw * Math.log(pcSansw)/Math.log(2)):0.0;
 			
 			
 		}
@@ -138,32 +151,34 @@ public class MNB_Classifier implements IFeatureSelectProbabilityFinder {
 
 	@Override
 	public double getClassProbGivenNotWord(String word, String className) {
+
 		double docCount;
-		if(this.word2class2Count.get(word).containsKey(className)==false)
+		if(this.class2word2Document.get(className).containsKey(word)==false)
 		{
 			docCount = 0;
 		}
 		else
 		{
-		docCount = this.word2class2Count.get(word).get(className);
+			docCount = this.class2word2Document.get(className).get(word).size();
 		}
 		double totalDoc = this.word2Documents.get(word).size();
-		return (this.totalDocumentCount -docCount)/(this.totalDocumentCount -totalDoc);
+		double classDocCount = this.classDocumentCounts.get(className);
+		return ( classDocCount-docCount)/(this.totalDocumentCount -totalDoc);
 	}
 
 
 	@Override
 	public double getClassProbGivenWord(String word, String className) {
 		double docCount;
-		if(this.word2class2Count.get(word).containsKey(className)==false)
+		if(this.class2word2Document.get(className).containsKey(word)==false)
 		{
 			docCount = 0;
 		}
 		else
 		{
-			docCount = this.word2class2Count.get(word).get(className);
+			docCount = this.class2word2Document.get(className).get(word).size();
 		}
-//		double docCount = this.word2class2Count.get(word).get(className);
+
 		double totalDoc = this.word2Documents.get(word).size();
 		return docCount/totalDoc;
 	}
@@ -179,6 +194,10 @@ public class MNB_Classifier implements IFeatureSelectProbabilityFinder {
 			result.add(new FeaturedWord(word, score));
 		}
 		Collections.sort(result);
+		if (m==-1)
+		{
+			return result;
+		}
 		return result.subList(0, m-1);
 		//return result;
 	}
@@ -198,25 +217,26 @@ public class MNB_Classifier implements IFeatureSelectProbabilityFinder {
 	public String label(File testFile,int M) {
 	//	Set<String> words = new HashSet<>();
 		
+		Map<String,Integer> vect = new HashMap<String, Integer>();
+		
 		List<FeaturedWord> fws = null;
 		if (M== -1)
 		{
-			fws = getFeatureSelection(word2Documents.size());
+			M = word2Documents.size();
 		}
+		
 		fws = getFeatureSelection(M);
-		int[] vect = new int[M];
+		//int[] vect = new int[M];
 		for (String word: MyReader.readEmail(testFile.toPath()))
 		{
-			int i = 0;
-			for (FeaturedWord fw:fws)
+			if (vect.containsKey(word)==false)
 			{
-				if (fw.getWord().equals(word))
-				{
-					vect[i]++;
-				}
-				i++;
+				vect.put(word, 1);
 			}
-		//	words.add(word);
+			else
+			{
+				vect.put(word,1+vect.get(word));
+			}
 		}
 		
 		List<FeaturedWord> classes = new ArrayList<FeaturedWord>();
@@ -227,29 +247,30 @@ public class MNB_Classifier implements IFeatureSelectProbabilityFinder {
 			for (String word: word2Documents.keySet())
 			{
 				
-				
-				int i = 0;
-				for (FeaturedWord fw:fws)
-				{
-					if (fw.getWord().equals(word))
+					
+					if (vect.containsKey(word))
 					{
-						classProb+= Math.log(getWordProbGivenClass(word, className)) * vect[i];
+						if (getWordProbGivenClass(word, className)==0)
+						{
+							continue;
+						}
+						classProb+= Math.log(getWordProbGivenClass(word, className)) * vect.get(word);
 					}
 					else
 					{
 //						classProb+= (1.0 -getWordProbGivenClass(word, className));
 					}
-					i++;
-				}
+				
+				
 			
 
 				
 			}
-			classes.add(new FeaturedWord(className, Math.pow(Math.E,classProb)));
+			classes.add(new FeaturedWord(className, classProb));
 			
 		}
 		Collections.sort(classes);
-		
+		Collections.reverse(classes);
 		return classes.get(0).getWord();
 	}
 
